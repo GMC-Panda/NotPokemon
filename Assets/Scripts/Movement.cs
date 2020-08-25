@@ -21,6 +21,8 @@ public class Movement : MonoBehaviour
     BoxCollider boxCollider;
     bool manipulateGravity = false;
 
+    Quaternion currentRotation = Quaternion.identity;
+
     Keyboard kb;
     Gamepad gp;
 
@@ -74,13 +76,26 @@ public class Movement : MonoBehaviour
         Jump();                 
     }
     public void Moving()
-    {
+    {        
         var movementInput = playerControl.Player.Move.ReadValue<Vector2>();
 
-        var movement = new Vector3(movementInput.x, 0f, movementInput.y);
+        if (movementInput == Vector2.zero)
+        {
+            transform.rotation = currentRotation;
+        }
 
-        transform.Translate(movement * moveSpeed * Time.deltaTime);
-        Sprint(movement);        
+        else
+        {
+            var movement = new Vector3(movementInput.x, 0f, movementInput.y);
+
+            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(movement.normalized), 0.5f);
+
+            currentRotation = transform.rotation;
+
+            transform.Translate(movement * moveSpeed * Time.deltaTime, Space.World);
+
+            Sprint(movement);
+        }
     }
     public void Jump()
     {
