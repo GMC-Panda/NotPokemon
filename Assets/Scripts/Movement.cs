@@ -8,18 +8,26 @@ public class Movement : MonoBehaviour
 {
     [SerializeField] float moveSpeed = 5f;
     [SerializeField] float jumpHeight = 5f;
+    [SerializeField] float accelerationModifier = 800f;
+    [SerializeField] float maxSpeed = 20f;
     [SerializeField] LayerMask layerMask;
+    [SerializeField] float fallMultiplier = 2.5f;
+    [SerializeField] float jumpHeightMultiplier = 2f;
+
     new Rigidbody rigidbody;
 
     PlayerControl playerControl;
     bool isGrounded = true;
     BoxCollider boxCollider;
     bool manipulateGravity = false;
-    float gravity = -9.80665f;
-    
+
+    Keyboard kb;
+    Gamepad gp;
 
     private void Awake()
     {
+        kb = InputSystem.GetDevice<Keyboard>();
+        gp = InputSystem.GetDevice<Gamepad>();
         playerControl = new PlayerControl();
         boxCollider = GetComponent<BoxCollider>();
         rigidbody = GetComponent<Rigidbody>();
@@ -35,7 +43,7 @@ public class Movement : MonoBehaviour
         RaycastHit hit;
 
         isGrounded = Physics.BoxCast(transform.position, transform.lossyScale / 2, Vector3.down, out hit,
-            Quaternion.identity, 2f, layerMask);
+            Quaternion.identity, 0.5f, layerMask);
         return isGrounded;
     }
 
@@ -56,44 +64,53 @@ public class Movement : MonoBehaviour
     {
 
     }
+    private void FixedUpdate()
+    {
+        GravityManipulation();
+    }
     void Update()
     {
         Moving();
-        Jump();
-        GravityManipulation();
-       
+        Jump();                 
     }
     public void Moving()
     {
         var movementInput = playerControl.Player.Move.ReadValue<Vector2>();
 
-
         var movement = new Vector3(movementInput.x, 0f, movementInput.y);
 
         transform.Translate(movement * moveSpeed * Time.deltaTime);
-        Debug.Log("I'm moving");
+        Sprint(movement);        
     }
     public void Jump()
     {
-        Keyboard kb = InputSystem.GetDevice<Keyboard>();
-        Gamepad gp = InputSystem.GetDevice<Gamepad>();
         if (kb.spaceKey.wasPressedThisFrame || gp.buttonSouth.wasPressedThisFrame)             
         {
-            if (GroundCheck()) //am Boden?
-            {
-                rigidbody.velocity = new Vector3(0, jumpHeight, 0); 
-                manipulateGravity = true;
+            if (GroundCheck()) 
+            {                
+                Vector3 jumpHeightVector = new Vector3(0, jumpHeight, 0);
+                 
+                rigidbody.AddForce(jumpHeightVector,ForceMode.VelocityChange);                                
             }
-            else manipulateGravity = false;
+         
         }
+    }
+    public void Sprint(Vector3 movement)
+    {
+
+        if ((kb.shiftKey.IsPressed(0) || gp.rightTrigger.IsPressed(0)) && isGrounded && rigidbody.velocity.magnitude < maxSpeed)
+        {                    
+            rigidbody.AddForce(movement * accelerationModifier,ForceMode.VelocityChange);                    
+        }       
     }
     public void GravityManipulation()
     {
-        if (manipulateGravity)
-            Physics.gravity = new Vector3(0, gravity*2, 0);
-        else if (!manipulateGravity)
-            Physics.gravity = new Vector3(0, gravity, 0);
+        if (rigidbody.velocity.y < 0)            
+            rigidbody.velocity += Vector3.up * Physics.gravity.y * (fallMultiplier - 1) * Time.deltaTime;
+        else if (rigidbody.velocity.y > 0 && !kb.spaceKey.isPressed)
+           rigidbody.velocity += Vector3.up * Physics.gravity.y * (jumpHeightMultiplier - 1) * Time.deltaTime;
     }
+
     //Code implement Sprint, implement dodgeroll
 
 
